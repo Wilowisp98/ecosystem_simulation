@@ -5,13 +5,19 @@
 #define RABBIT 'R'
 #define STONE 'S'
 #define EMPTY '.'
+#define VERBOSE 0
+
+// Struct representing an <link>animal</link>
+typedef struct {
+    int current_gen; // Current generation
+    char type; // <link>Animal</link> type: 'R' for rabbit, 'F' for fox
+} Animal;
 
 void printMatrix(char* matrix, int rows, int cols);
 void printAdjacentBlocks(char* matrix, int rows, int cols, int row, int col, char currentEntity, int* validMoves);
 void printPosition(int row, int col);
 
 int chooseMove(int* validMoves);
-char* readMatrix(FILE* file, int rows, int cols);
 
 void read_inputs(int* GEN_PROC_RABBITS, int* GEN_PROC_FOXES, int* GEN_FOOD_FOXES, int* N_GEN, int* R, int* C, int* N) {
     scanf("%d", GEN_PROC_RABBITS);
@@ -23,7 +29,7 @@ void read_inputs(int* GEN_PROC_RABBITS, int* GEN_PROC_FOXES, int* GEN_FOOD_FOXES
     scanf("%d", N);
 }
 
-void load_ecosystem(char** matrix, int R, int C, int N) {
+void load_ecosystem(Animal** matrix, int R, int C, int N) {
     for (int i = 0; i < N; i++) {
         char obj[10]; // Assuming the maximum length of the object name is 10 characters
         int row, col;
@@ -47,23 +53,14 @@ void load_ecosystem(char** matrix, int R, int C, int N) {
     }
 }
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <filename> <rows> <cols>\n", argv[0]);
-        return 1;
-    }
+    int GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, N_GEN, rows, cols, N;
+    char* ecosystem;
+    long startTime = time(NULL); 
 
-    int rows = atoi(argv[2]);
-    int cols = atoi(argv[3]);
-
-    FILE* file = fopen(argv[1], "r");
-    if (file == NULL) {
-        fprintf(stderr, "Error opening file %s.\n", argv[1]);
-        return 1;
-    }
-
-    char* matrix = readMatrix(file, rows, cols);
-
-    fclose(file);
+    read_inputs(&GEN_PROC_RABBITS, &GEN_PROC_FOXES, &GEN_FOOD_FOXES, &N_GEN, &R, &C, &N);
+    char* ecosystem = (char*)malloc(R * C * sizeof(char));
+    // Load the ecosystem data into the matrix
+    load_ecosystem(ecosystem, rows, cols, N);
 
     // Print the matrix array after allocating it into a contiguous array
     printMatrix(matrix, rows, cols);
