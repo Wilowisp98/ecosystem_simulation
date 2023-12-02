@@ -13,6 +13,39 @@ void printPosition(int row, int col);
 int chooseMove(int* validMoves);
 char* readMatrix(FILE* file, int rows, int cols);
 
+void read_inputs(int* GEN_PROC_RABBITS, int* GEN_PROC_FOXES, int* GEN_FOOD_FOXES, int* N_GEN, int* R, int* C, int* N) {
+    scanf("%d", GEN_PROC_RABBITS);
+    scanf("%d", GEN_PROC_FOXES);
+    scanf("%d", GEN_FOOD_FOXES);
+    scanf("%d", N_GEN);
+    scanf("%d", R);
+    scanf("%d", C);
+    scanf("%d", N);
+}
+
+void load_ecosystem(char** matrix, int R, int C, int N) {
+    for (int i = 0; i < N; i++) {
+        char obj[10]; // Assuming the maximum length of the object name is 10 characters
+        int row, col;
+        scanf("%s %d %d", obj, &row, &col);
+        
+        // Map object representation to character
+        char representation;
+        if (strcmp(obj, "ROCK") == 0) {
+            representation = STONE;
+        } else if (strcmp(obj, "RABBIT") == 0) {
+            representation = RABBIT;
+        } else if (strcmp(obj, "FOX") == 0) {
+            representation = FOX;
+        } else {
+            printf("Unknown object type: %s\n", obj);
+            exit(1); // Terminate program due to unknown object type
+        }
+        
+        // Store the mapped representation in the matrix
+        matrix[row][col] = representation;
+    }
+}
 int main(int argc, char *argv[]) {
     if (argc != 4) {
         fprintf(stderr, "Usage: %s <filename> <rows> <cols>\n", argv[0]);
