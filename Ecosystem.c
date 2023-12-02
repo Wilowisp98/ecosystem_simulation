@@ -17,7 +17,7 @@ typedef struct {
 } Entity;
 
 void get_valid_moves(Entity**, int, int, int, int, int**);
-int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col);
+int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col, int G);
 void get_next_generation(Entity**, int, int, int*);
 int chooseMove(int*);
 
@@ -44,6 +44,7 @@ void printPosition(int row, int col) {
 }
 void printMatrix(Entity** ecosystem, int rows, int cols, int G) {
     printf("Ecosystem for Generation=%d:\n", G);
+    printf("TYPES | GEN_PROC | GEN_FOOD | CUR_GEN\n");
     for (int i = 0; i < rows; ++i) {
         printf("| ");
         for (int j = 0; j < cols; ++j) {
@@ -151,16 +152,21 @@ void get_next_generation(Entity** ecosystem, int rows, int cols, int* G) {
     printf("\n\nCHECKING MOVES FOR RABBITS\n\n");
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
-            if (ecosystem[row][col].type != RABBIT) continue;
-            int* next_move = get_next_move(ecosystem, rows, cols, row, col);
+            if (ecosystem[row][col].type != RABBIT || ecosystem[row][col].cur_gen > *G) continue;
+            int* next_move = get_next_move(ecosystem, rows, cols, row, col, *G);
+            printf("Rabbit from (%d, %d) -> (%d, %d)\n", row, col, next_move[0], next_move[1]);
 
             // Moving Rabbit
             // Checking if a rabbit already moved there with less gen_proc, if not move rabbit
-            Entity ent_next_pos = ecosystem[next_move[0]][next_move[1]];
-            if (ent_next_pos.gen_proc < ecosystem[row][col].gen_proc || ent_next_pos.cur_gen <= *G) {
-                ecosystem[next_move[0]][next_move[1]] = ecosystem[row][col];
-                ecosystem[row][col].cur_gen = *G+1;
-                ecosystem[row][col].gen_proc ++;
+            Entity* ent_next_pos = &ecosystem[next_move[0]][next_move[1]];
+            if ((*ent_next_pos).type != RABBIT) {
+                (*ent_next_pos).gen_proc = ecosystem[row][col].gen_proc + 1;
+                (*ent_next_pos).cur_gen = *G + 1;
+                (*ent_next_pos).gen_food = -1;
+                (*ent_next_pos).type = RABBIT;
+            } else if ((*ent_next_pos).gen_proc < ecosystem[row][col].gen_proc) {
+                (*ent_next_pos).gen_proc = ecosystem[row][col].gen_proc + 1;
+                (*ent_next_pos).cur_gen = *G + 1;
             }
         }
     }
@@ -168,25 +174,36 @@ void get_next_generation(Entity** ecosystem, int rows, int cols, int* G) {
     printf("\n\nCHECKING MOVES FOR FOXES\n\n");
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
-            if (ecosystem[row][col].type != FOX) continue;
-            int* next_move = get_next_move(ecosystem, rows, cols, row, col);
-
+            if (ecosystem[row][col].type != FOX || ecosystem[row][col].cur_gen > *G) continue;
+            int* next_move = get_next_move(ecosystem, rows, cols, row, col, *G);
+            printf("Fox from (%d, %d) -> (%d, %d)\n", row, col, next_move[0], next_move[1]);
             // Moving Fox
             // Checking if a rabbit already moved there with less gen_proc, if not move rabbit
-            Entity ent_next_pos = ecosystem[next_move[0]][next_move[1]];
-            if (ent_next_pos.gen_proc < ecosystem[row][col].gen_proc || ent_next_pos.cur_gen <= *G) {
-                if (ecosystem[next_move[0]][next_move[1]].type == RABBIT) ecosystem[row][col].gen_food = -1;
-                ecosystem[next_move[0]][next_move[1]] = ecosystem[row][col];
-                ecosystem[row][col].cur_gen = *G+1;
-                ecosystem[row][col].gen_proc ++;
-                ecosystem[row][col].gen_food ++;
+            Entity* ent_next_pos = &ecosystem[next_move[0]][next_move[1]];
+            if ((*ent_next_pos).type == RABBIT) {
+                (*ent_next_pos).gen_proc = ecosystem[row][col].gen_proc + 1;
+                (*ent_next_pos).cur_gen = *G + 1;
+                (*ent_next_pos).gen_food = 0;
+                (*ent_next_pos).type = FOX;
+            } else if ((*ent_next_pos).gen_proc < ecosystem[row][col].gen_proc) {
+                (*ent_next_pos).gen_proc = ecosystem[row][col].gen_proc + 1;
+                (*ent_next_pos).gen_food = ecosystem[row][col].gen_food + 1;
+                (*ent_next_pos).cur_gen = *G + 1;
+                (*ent_next_pos).type = FOX;
+            } else {
+                (*ent_next_pos).gen_proc = ecosystem[row][col].gen_proc + 1;
+                (*ent_next_pos).gen_food = ecosystem[row][col].gen_food + 1;
+                (*ent_next_pos).cur_gen = *G + 1;
+                (*ent_next_pos).type = FOX;
             }
         }
     }
     // After moving all the rabits, deleting old generation rabbits and Foxes
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
-            if (ecosystem[row][col].type == STONE)  ecosystem[row][col].cur_gen = *G+1;
+            if (ecosystem[row][col].type == STONE) {
+                ecosystem[row][col].cur_gen = *G+1;
+            }
             if (ecosystem[row][col].cur_gen == *G)  ecosystem[row][col] = empty_entity();
         }
     }
@@ -195,37 +212,52 @@ void get_next_generation(Entity** ecosystem, int rows, int cols, int* G) {
     (*G)++;
 }
 
-int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col) {
+int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col, int G) {
     int* validMoves = (int*)malloc(sizeof(int) * 4);
     for (int i=0; i<4; i++) {validMoves[i]=-1;}
     get_valid_moves(ecosystem, rows, cols, row, col, &validMoves);
     int* output = (int*)malloc(sizeof(int)*2);
-    output[0] = 0;
-    output[1] = 0;
+    output[0] = row;
+    output[1] = col;
+    int max_val = 1;
+    int p = 0;
+    for (int i=0; i<4; i++) {
+        if (max_val < validMoves[i]) {
+            max_val = validMoves[i];
+            p = 0;
+        } 
+        if (max_val == validMoves[i]) {
+            p++;
+        }
+    }
 
     if (VERBOSE) {printf("validMoves = {%d, %d, %d, %d}\n", validMoves[0], validMoves[1], validMoves[2], validMoves[3]);}
     // return output;
-    // Finding the first valid move != -1 
+    // Finding the first greatest valid move != -1 
+    int cur_count = -1;
     for (int i=0; i<4; i++) {
         // Whenever a move != -1 is found, return the respective resulting coordinates (clockwise order, so)
         // 0 -> UP    (-1, 0)
         // 1 -> LEFT  (0, -1)
         // 2 -> DOWN  (1, 0)
         // 3 -> RIGHT (0, 1)
-        if (validMoves[i] != -1) {
+        if (validMoves[i] == max_val) {
+            cur_count++;  
+            // Choosing only the G + X + Y mod p move
+            if ((G + row + col) % p != cur_count) continue;
             if (i==0) {         // 0 -> UP    (-1, 0)
                 output[0] = -1 + row;
-                output[1] = 0 + col;
-            } else if (i==1) {  // 1 -> LEFT  (0, -1)
-                output[0] = 0 + row;
-                output[1] = -1 + col;
+                output[1] = col;
+            } else if (i==1) { // 1 -> RIGHT (0, 1)
+                output[0] = row;
+                output[1] = 1 + col;
             } else if (i==2) { // 2 -> DOWN  (1, 0)
                 output[0] = 1 + row;
-                output[1] = 0 + col;
-            } else if (i==3) { // 3 -> RIGHT (0, 1)
-                output[0] = 0 + row;
-                output[1] = 1 + col;
-            }             
+                output[1] = col;
+            } else if (i==3) {  // 3 -> LEFT  (0, -1)
+                output[0] = row;
+                output[1] = -1 + col;
+            }          
             return output;
         }
     } 
@@ -236,47 +268,32 @@ void get_valid_moves(Entity** ecosystem, int rows, int cols, int row, int col, i
     int count = 0;
     Entity currentEntity = ecosystem[row][col]; 
     if (VERBOSE)
-        printf("Adjacent blocks for ecosystem[%d][%d] with entity '%c': \n", row, col, currentEntity.type);
+        printf("\nAdjacent blocks for ecosystem[%d][%d] with entity '%c' ", row, col, currentEntity.type);
 
-    // Up
-    if (row - 1 >= 0 && currentEntity.type == FOX && ecosystem[(row - 1)][col].type == RABBIT && currentEntity.cur_gen < ecosystem[(row - 1)][col].cur_gen) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row - 1, col);
-    } else if (row - 1 >= 0 && currentEntity.type == RABBIT && ecosystem[(row - 1)][col].type == EMPTY) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row - 1, col);
-    }
-    count++;
-    // Left
-    if (col - 1 >= 0 && currentEntity.type == FOX && ecosystem[row][col - 1].type == RABBIT && currentEntity.cur_gen < ecosystem[row][col - 1].cur_gen) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row, col - 1);
-    } else if (col - 1 >= 0 && currentEntity.type == RABBIT && ecosystem[row][col - 1].type == EMPTY) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row, col - 1);
-    }
-    count++;
+    int directions[4][2] = {{-1, 0}, {0, 1}, {1, 0}, {0, -1}};
 
-    // Down
-    if (row + 1 < rows && currentEntity.type == FOX && ecosystem[(row + 1)][col].type == RABBIT && currentEntity.cur_gen < ecosystem[(row + 1)][col].cur_gen) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row + 1, col);
-    } else if (row + 1 < rows && currentEntity.type == RABBIT && ecosystem[(row + 1)][col].type == EMPTY) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row + 1, col);
-    }
-    count++;
+    Entity next_pos_entity;
+    for (int dir=0; dir<4; dir++) {
+        // If direction is outside ecosystem, try another direction
+        if (row+directions[dir][0] < 0 || row+directions[dir][0] >= rows || col+directions[dir][1] < 0 || col+directions[dir][1] >= cols) continue;
 
-    // Right
-    if (col + 1 < cols && currentEntity.type == FOX && ecosystem[row][col + 1].type == RABBIT && currentEntity.cur_gen < ecosystem[row][col + 1].cur_gen) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row, col + 1);
-    } else if (col + 1 < cols && currentEntity.type == RABBIT && ecosystem[row][col + 1].type == EMPTY) {
-        (*validMoves)[count] = 1;
-        if (VERBOSE) printf("[%d, %d] ", row, col + 1);
-    }
-    count++;
+        next_pos_entity = ecosystem[row+directions[dir][0]][col+directions[dir][1]];
+        if (next_pos_entity.type == STONE) continue;
 
+        // Checking moves for rabbits
+        if (currentEntity.type == RABBIT) {
+            if (next_pos_entity.type == FOX || (next_pos_entity.type==RABBIT && currentEntity.cur_gen == next_pos_entity.cur_gen)) continue;
+            (*validMoves)[dir] = 1;
+        } 
+        else if (currentEntity.type == FOX) {
+            if (next_pos_entity.type == RABBIT && next_pos_entity.cur_gen > currentEntity.cur_gen) {
+                (*validMoves)[dir] = 2; // The higher the number, the higher the priority 
+            }
+            if (next_pos_entity.type == EMPTY) {
+                (*validMoves)[dir] = 1;
+            }
+        }
+    }
     if (VERBOSE) printf("\n");
 }
 
