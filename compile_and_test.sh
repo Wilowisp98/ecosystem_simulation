@@ -1,0 +1,1 @@
+gcc Ecosystem.c -o a.out && ./a.out < input_examples/input5x5

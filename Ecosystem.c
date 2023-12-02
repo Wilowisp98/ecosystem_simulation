@@ -1,20 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define FOX 'F'
-#define RABBIT 'R'
+#define RABBIT '*'
 #define STONE 'S'
 #define EMPTY '.'
 #define VERBOSE 0
 
-// Struct representing an <link>animal</link>
+// Struct representing an Entity (either Rock/Rabbit/Empty/Fox)
 typedef struct {
     int current_gen; // Current generation
-    char type; // <link>Animal</link> type: 'R' for rabbit, 'F' for fox
-} Animal;
+    char type; // <link>Entity</link> type: 'R' for rabbit, 'F' for fox
+} Entity;
 
-void printMatrix(char* matrix, int rows, int cols);
-void printAdjacentBlocks(char* matrix, int rows, int cols, int row, int col, char currentEntity, int* validMoves);
+void printMatrix(Entity* matrix, int rows, int cols);
+void printAdjacentBlocks(Entity* matrix, int rows, int cols, int row, int col, char currentEntity, int* validMoves);
 void printPosition(int row, int col);
 
 int chooseMove(int* validMoves);
@@ -29,48 +30,52 @@ void read_inputs(int* GEN_PROC_RABBITS, int* GEN_PROC_FOXES, int* GEN_FOOD_FOXES
     scanf("%d", N);
 }
 
-void load_ecosystem(Animal** matrix, int R, int C, int N) {
+void load_ecosystem(Entity** matrix, int R, int C, int N) {
+    for (int row=0; row<R; row++) {
+        for (int col=0; col<C; col++) {
+            Entity new_entity;
+            new_entity.type = EMPTY;
+            new_entity.current_gen = 0;
+            (*matrix)[row*R + col] = new_entity;
+        }
+    } 
+    char obj[10]; // Assuming the maximum length of the object name is 10 characters
     for (int i = 0; i < N; i++) {
-        char obj[10]; // Assuming the maximum length of the object name is 10 characters
         int row, col;
         scanf("%s %d %d", obj, &row, &col);
         
         // Map object representation to character
-        char representation;
         if (strcmp(obj, "ROCK") == 0) {
-            representation = STONE;
+            (*matrix)[row*R + col].type = STONE;
         } else if (strcmp(obj, "RABBIT") == 0) {
-            representation = RABBIT;
+            (*matrix)[row*R + col].type = RABBIT;
         } else if (strcmp(obj, "FOX") == 0) {
-            representation = FOX;
+            (*matrix)[row*R + col].type = FOX;
         } else {
             printf("Unknown object type: %s\n", obj);
             exit(1); // Terminate program due to unknown object type
         }
-        
-        // Store the mapped representation in the matrix
-        matrix[row][col] = representation;
     }
 }
 int main(int argc, char *argv[]) {
     int GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, N_GEN, rows, cols, N;
-    char* ecosystem;
-    long startTime = time(NULL); 
+    // long startTime = time(NULL); 
 
-    read_inputs(&GEN_PROC_RABBITS, &GEN_PROC_FOXES, &GEN_FOOD_FOXES, &N_GEN, &R, &C, &N);
-    char* ecosystem = (char*)malloc(R * C * sizeof(char));
+    read_inputs(&GEN_PROC_RABBITS, &GEN_PROC_FOXES, &GEN_FOOD_FOXES, &N_GEN, &rows, &cols, &N);
+
+    Entity* ecosystem = (Entity*)malloc(rows * cols * sizeof(Entity));
     // Load the ecosystem data into the matrix
-    load_ecosystem(ecosystem, rows, cols, N);
+    load_ecosystem(&ecosystem, rows, cols, N);
 
     // Print the matrix array after allocating it into a contiguous array
-    printMatrix(matrix, rows, cols);
+    printMatrix(ecosystem, rows, cols);
 
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
-            printf("Processing matrix[%d][%d] with entity '%c'\n", i, j, matrix[i * cols + j]);
+            printf("Processing matrix[%d][%d] with entity '%c'\n", i, j, ecosystem[i * cols + j].type);
 
             int validMoves[4] = {-1, -1, -1, -1};
-            printAdjacentBlocks(matrix, rows, cols, i, j, matrix[i * cols + j], validMoves);
+            printAdjacentBlocks(ecosystem, rows, cols, i, j, ecosystem[i * cols + j].type, validMoves);
             int chosenMove = chooseMove(validMoves);
             if (chosenMove != -1) {
                 printf("Chosen move position: ");
@@ -81,72 +86,60 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    free(matrix);
+    free(ecosystem);
 
     return 0;
 }
 
-char* readMatrix(FILE* file, int rows, int cols) {
-    char* matrix = (char*)malloc(rows * cols * sizeof(char));
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            if (fscanf(file, " %c", &matrix[i * cols + j]) != 1) {
-                fprintf(stderr, "Error reading matrix[%d][%d] from file.\n", i, j);
-                exit(1);
-            }
-        }
-    }
-    return matrix;
-}
 
-void printMatrix(char* matrix, int rows, int cols) {
+void printMatrix(Entity* matrix, int rows, int cols) {
     printf("Matrix array after allocating into a contiguous array:\n");
     for (int i = 0; i < rows; ++i) {
         for (int j = 0; j < cols; ++j) {
-            printf("%c ", matrix[i * cols + j]);
+            printf("%c ", matrix[i * rows + j].type);
         }
         printf("\n");
     }
     printf("\n");
 }
 
-void printAdjacentBlocks(char* matrix, int rows, int cols, int row, int col, char currentEntity, int* validMoves) {
+void printAdjacentBlocks(Entity* matrix, int rows, int cols, int row, int col, char currentEntity, int* validMoves) {
     int count = 0;
 
     printf("Adjacent blocks for matrix[%d][%d] with entity '%c': ", row, col, currentEntity);
 
     // Right
-    if (col + 1 < cols && currentEntity == FOX && matrix[row * cols + col + 1] == RABBIT) {
+    if (col + 1 < cols && currentEntity == FOX && matrix[row * cols + col + 1].type == RABBIT) {
         validMoves[count++] = (row * cols) + (col + 1);
         printf("[%d, %d] ", row, col + 1);
-    } else if (col + 1 < cols && currentEntity == RABBIT && matrix[row * cols + col + 1] == EMPTY) {
+    } else if (col + 1 < cols && currentEntity == RABBIT && matrix[row * cols + col + 1].type == EMPTY) {
         validMoves[count++] = (row * cols) + (col + 1);
         printf("[%d, %d] ", row, col + 1);
     }
 
     // Left
-    if (col - 1 >= 0 && currentEntity == FOX && matrix[row * cols + col - 1] == RABBIT) {
+    if (col - 1 >= 0 && currentEntity == FOX && matrix[row * cols + col - 1].type == RABBIT) {
         validMoves[count++] = (row * cols) + (col - 1);
         printf("[%d, %d] ", row, col - 1);
-    } else if (col - 1 >= 0 && currentEntity == RABBIT && matrix[row * cols + col - 1] == EMPTY) {
+    } else if (col - 1 >= 0 && currentEntity == RABBIT && matrix[row * cols + col - 1].type == EMPTY) {
         validMoves[count++] = (row * cols) + (col - 1);
         printf("[%d, %d] ", row, col - 1);
     }
 
     // Up
-    if (row - 1 >= 0 && currentEntity == FOX && matrix[(row - 1) * cols + col] == RABBIT) {
+    if (row - 1 >= 0 && currentEntity == FOX && matrix[(row - 1) * cols + col].type == RABBIT) {
         validMoves[count++] = ((row - 1) * cols) + col;
         printf("[%d, %d] ", row - 1, col);
-    } else if (row - 1 >= 0 && currentEntity == RABBIT && matrix[(row - 1) * cols + col] == EMPTY) {
+    } else if (row - 1 >= 0 && currentEntity == RABBIT && matrix[(row - 1) * cols + col].type == EMPTY) {
         validMoves[count++] = ((row - 1) * cols) + col;
         printf("[%d, %d] ", row - 1, col);
     }
 
     // Down
-    if (row + 1 < rows && currentEntity == FOX && matrix[(row + 1) * cols + col] == RABBIT) {
+    if (row + 1 < rows && currentEntity == FOX && matrix[(row + 1) * cols + col].type == RABBIT) {
         validMoves[count++] = ((row + 1) * cols) + col;
         printf("[%d, %d] ", row + 1, col);
-    } else if (row + 1 < rows && currentEntity == RABBIT && matrix[(row + 1) * cols + col] == EMPTY) {
+    } else if (row + 1 < rows && currentEntity == RABBIT && matrix[(row + 1) * cols + col].type == EMPTY) {
         validMoves[count++] = ((row + 1) * cols) + col;
         printf("[%d, %d] ", row + 1, col);
     }
