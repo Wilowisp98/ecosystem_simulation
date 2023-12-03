@@ -7,6 +7,7 @@
 #define STONE '*'
 #define EMPTY ' '
 #define VERBOSE 0
+#define ALLGEN 0
 
 // Struct representing an Entity (either Rock/Rabbit/Empty/Fox)
 typedef struct {
@@ -111,8 +112,17 @@ void read_inputs(int* GEN_PROC_RABBITS, int* GEN_PROC_FOXES, int* GEN_FOOD_FOXES
     scanf("%d", C);
     scanf("%d", N);
 }
-void printMatrix_output_format(Entity** ecosystem, int rows, int cols) {
-    printf("some stuff\n");
+void printMatrix_output_format(int GEN_PROC_RABBITS, int GEN_PROC_FOXES, int GEN_FOOD_FOXES, int rows, int cols, Entity** ecosystem) {
+    printf("%d %d %d 0 %d %d ", GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, rows, cols);
+    int N = 0;
+    for (int i=0; i<rows; i++) {
+        for (int j=0; j<cols; j++) {
+            if (ecosystem[i][j].type == EMPTY) continue;
+            N++;
+        }
+    }
+    printf("%d\n", N);
+
     for (int i=0; i<rows; i++) {
         for (int j=0; j<cols; j++) {
             if (ecosystem[i][j].type == EMPTY) continue;
@@ -183,16 +193,16 @@ int main(int argc, char *argv[]) {
     aloc_matrix(&aux_ecosystem, rows, cols);
     copy_ecosystem(ecosystem, aux_ecosystem, rows, cols);
     for (int G=0; G<N_GEN; G++) {
-        printMatrix(ecosystem, rows, cols, G);
+        if (ALLGEN) printMatrix(ecosystem, rows, cols, G);
 
         // obtain next gen
         get_next_generation(&ecosystem, rows, cols, G, GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, &aux_ecosystem);
         
     }
-    printMatrix(ecosystem, rows, cols, N_GEN);
+    if (ALLGEN) printMatrix(ecosystem, rows, cols, N_GEN);
 
 
-    printMatrix_output_format(ecosystem, rows, cols);
+    if (!ALLGEN) printMatrix_output_format(GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, rows, cols, ecosystem);
     free(ecosystem);
 
     return 0;
@@ -217,7 +227,7 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
                 empty_entity(&((*aux_ecosystem)[row][col]), G+1);
             } 
              // If ready to procriate and rabbit moves to other pos, just reset gen_proc and move to the next position
-            else if (row != next_move[0] || col != next_move[1]) {   
+            else if (row != next_move[0] || col != next_move[1]) {
                 (*ecosystem)[row][col].gen_proc = -1;
                 (*ecosystem)[row][col].cur_gen = G+1; 
                 (*aux_ecosystem)[row][col].gen_food = -1;
