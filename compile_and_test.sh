@@ -1,1 +1,1 @@
-gcc Ecosystem.c -o a.out && ./a.out < input_examples/input10x10 > output.txt
+gcc Ecosystem.c -o a.out && ./a.out < input_examples/input20x20 > output.txt
