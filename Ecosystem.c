@@ -136,34 +136,33 @@ void printMatrix_output_format(int GEN_PROC_RABBITS, int GEN_PROC_FOXES, int GEN
 }
 
 void load_ecosystem(Entity** ecosystem, int R, int C, int N) {
-    for (int row=0; row<R; row++) {
-        for (int col=0; col<C; col++) {
-            Entity new_entity;
-            empty_entity(&new_entity, 0);
-            ecosystem[row][col] = new_entity;
-        }
-    } 
-    char obj[10]; // Assuming the maximum length of the object name is 10 characters
+    #pragma omp parallel for
     for (int i = 0; i < N; i++) {
         int row, col;
+        char obj[20];  // Assuming a maximum length for 'obj'
+
         scanf("%s %d %d", obj, &row, &col);
-        
+
         // Map object representation to character
-        if (strcmp(obj, "ROCK") == 0) {
-            ecosystem[row][col].type = STONE;
-        } else if (strcmp(obj, "RABBIT") == 0) {
-            ecosystem[row][col].type = RABBIT;
-        } else if (strcmp(obj, "FOX") == 0) {
-            ecosystem[row][col].type = FOX;
-            ecosystem[row][col].gen_food = 0;
-        } else {
-            printf("Unknown object type: %s\n", obj);
-            exit(1); // Terminate program due to unknown object type
+        #pragma omp critical
+        {
+            if (strcmp(obj, "ROCK") == 0) {
+                ecosystem[row][col].type = STONE;
+            } else if (strcmp(obj, "RABBIT") == 0) {
+                ecosystem[row][col].type = RABBIT;
+            } else if (strcmp(obj, "FOX") == 0) {
+                ecosystem[row][col].type = FOX;
+                ecosystem[row][col].gen_food = 0;
+            } else {
+                printf("Unknown object type: %s\n", obj);
+                exit(1); // Terminate program due to unknown object type
+            }
         }
     }
 }
 
 void copy_ecosystem(Entity** original, Entity** copy, int rows, int cols) {
+    #pragma omp parallel for collapse(2)
     for (int r=0; r<rows; r++) {
         for (int c=0; c<cols; c++) {
             Entity new_entity;
@@ -172,6 +171,7 @@ void copy_ecosystem(Entity** original, Entity** copy, int rows, int cols) {
         }
     }
 }
+
 void copy_entity(Entity original, Entity* copy) {
     (*copy).type     = original.type;
     (*copy).gen_proc = original.gen_proc;
@@ -186,7 +186,9 @@ int main(int argc, char *argv[]) {
     double startTime, endTime;
     startTime = omp_get_wtime();
 
-    omp_set_num_threads(16);
+    int numThreads = omp_get_max_threads(); // Get the number of threads from the command
+
+    omp_set_num_threads(numThreads); // Set the number of threads
 
     read_inputs(&GEN_PROC_RABBITS, &GEN_PROC_FOXES, &GEN_FOOD_FOXES, &N_GEN, &rows, &cols, &N);
 
@@ -223,11 +225,12 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
     // MOVING RABBITS
     if (VERBOSE) printf("\n\nCHECKING MOVES FOR RABBITS\n\n");
 
-    #pragma omp parallel for collapse(2) // Parallelize nested loops
+    #pragma omp parallel for schedule(guided)
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             if ((*ecosystem)[row][col].type != RABBIT) continue;
             int* next_move = get_next_move((*ecosystem), rows, cols, row, col, G, (*aux_ecosystem));
+            if (VERBOSE) printf("Thread ID: %d, Number of Threads: %d\n", omp_get_thread_num(), omp_get_num_threads());
             if (VERBOSE) printf("Rabbit from (%d, %d) -> (%d, %d) [which is a %c]\n", row, col, next_move[0], next_move[1], (*aux_ecosystem)[next_move[0]][next_move[1]].type);
             if (VERBOSE) printf("     rabbit (cur_gen, gen_prod)=(%d, %d)\n", (*ecosystem)[row][col].cur_gen, (*ecosystem)[row][col].gen_proc);
 
@@ -267,7 +270,7 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
     // MOVING FOXES
     if (VERBOSE) printf("\n\nCHECKING MOVES FOR FOXES\n\n");
 
-    #pragma omp parallel for collapse(2)  // Parallelize nested loops
+    #pragma omp parallel for schedule(guided)
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             // if in aux_ecosystem it has not been updated means it needs to be updated
@@ -331,8 +334,9 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
         }
     }
 
-    #pragma omp parallel for collapse(2) // Parallelize nested loops
+
     // DELETING ALL PREVIOUS GENERATION THINGS
+    #pragma omp parallel for collapse(2) // Parallelize nested loops
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             if ((*aux_ecosystem)[row][col].type == STONE || (*aux_ecosystem)[row][col].type == EMPTY) {
@@ -359,7 +363,7 @@ int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col, int
     output[1] = col;
     int max_val = 1;
     int p = 0;
-    #pragma omp parallel for reduction(max:max_val) reduction(+:p)
+    // #pragma omp parallel for reduction(max:max_val) reduction(+:p)
     for (int i=0; i<4; i++) {
         if (max_val < validMoves[i]) {
             max_val = validMoves[i];
@@ -433,9 +437,12 @@ void get_valid_moves(Entity** ecosystem, int rows, int cols, int row, int col, i
             printf("\n");
         }
     }
+
     Entity next_pos_entity;
     Entity next_pos_aux_entity;
-    for (int dir=0; dir<4; dir++) {
+    int dir;
+    // #pragma omp parallel for private(dir) shared(validMoves)
+    for (dir=0; dir<4; dir++) {
         // If direction is outside ecosystem, try another direction
         if (row+directions[dir][0] < 0 || row+directions[dir][0] >= rows || col+directions[dir][1] < 0 || col+directions[dir][1] >= cols) continue;
         

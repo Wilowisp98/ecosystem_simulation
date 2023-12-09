@@ -1,1 +1,1 @@
-gcc Ecosystem.c -o a.out -fopenmp && ./a.out < input_examples/input20x20 > output.txt 
+OMP_NUM_THREADS=4 gcc Ecosystem.c -o a.out -fopenmp && OMP_NUM_THREADS=4 ./a.out < input_examples/input20x20 > output.txt
