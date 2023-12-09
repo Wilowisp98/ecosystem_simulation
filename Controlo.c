@@ -186,8 +186,6 @@ int main(int argc, char *argv[]) {
     double startTime, endTime;
     startTime = omp_get_wtime();
 
-    omp_set_num_threads(16);
-
     read_inputs(&GEN_PROC_RABBITS, &GEN_PROC_FOXES, &GEN_FOOD_FOXES, &N_GEN, &rows, &cols, &N);
 
     Entity** ecosystem ;
@@ -222,8 +220,6 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
     // G -> Current Generation
     // MOVING RABBITS
     if (VERBOSE) printf("\n\nCHECKING MOVES FOR RABBITS\n\n");
-
-    #pragma omp parallel for collapse(2) // Parallelize nested loops
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             if ((*ecosystem)[row][col].type != RABBIT) continue;
@@ -266,8 +262,6 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
     
     // MOVING FOXES
     if (VERBOSE) printf("\n\nCHECKING MOVES FOR FOXES\n\n");
-
-    #pragma omp parallel for collapse(2)  // Parallelize nested loops
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             // if in aux_ecosystem it has not been updated means it needs to be updated
@@ -331,7 +325,7 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
         }
     }
 
-    #pragma omp parallel for collapse(2) // Parallelize nested loops
+    
     // DELETING ALL PREVIOUS GENERATION THINGS
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
@@ -359,7 +353,6 @@ int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col, int
     output[1] = col;
     int max_val = 1;
     int p = 0;
-    #pragma omp parallel for reduction(max:max_val) reduction(+:p)
     for (int i=0; i<4; i++) {
         if (max_val < validMoves[i]) {
             max_val = validMoves[i];
