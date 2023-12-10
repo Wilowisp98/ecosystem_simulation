@@ -113,6 +113,7 @@ void read_inputs(int* GEN_PROC_RABBITS, int* GEN_PROC_FOXES, int* GEN_FOOD_FOXES
     scanf("%d", C);
     scanf("%d", N);
 }
+
 void printMatrix_output_format(int GEN_PROC_RABBITS, int GEN_PROC_FOXES, int GEN_FOOD_FOXES, int rows, int cols, Entity** ecosystem) {
     printf("%d %d %d 0 %d %d ", GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, rows, cols);
     int N = 0;
@@ -136,30 +137,53 @@ void printMatrix_output_format(int GEN_PROC_RABBITS, int GEN_PROC_FOXES, int GEN
 }
 
 void load_ecosystem(Entity** ecosystem, int R, int C, int N) {
+    #pragma omp parallel for collapse(2)
+    for (int row = 0; row < R; row++) {
+        for (int col = 0; col < C; col++) {
+            Entity new_entity;
+            empty_entity(&new_entity, 0);
+            ecosystem[row][col] = new_entity;
+        }
+    }
+
     #pragma omp parallel for
     for (int i = 0; i < N; i++) {
         int row, col;
-        char obj[20];  // Assuming a maximum length for 'obj'
+        char obj[10];
 
-        scanf("%s %d %d", obj, &row, &col);
-
-        // Map object representation to character
+        // Use private variables for each thread
         #pragma omp critical
         {
-            if (strcmp(obj, "ROCK") == 0) {
+            scanf("%s %d %d", obj, &row, &col);
+        }
+
+        // Map object representation to character
+        if (strcmp(obj, "ROCK") == 0) {
+            #pragma omp critical
+            {
                 ecosystem[row][col].type = STONE;
-            } else if (strcmp(obj, "RABBIT") == 0) {
+            }
+        } else if (strcmp(obj, "RABBIT") == 0) {
+            #pragma omp critical
+            {
                 ecosystem[row][col].type = RABBIT;
-            } else if (strcmp(obj, "FOX") == 0) {
+            }
+        } else if (strcmp(obj, "FOX") == 0) {
+            #pragma omp critical
+            {
                 ecosystem[row][col].type = FOX;
                 ecosystem[row][col].gen_food = 0;
-            } else {
+            }
+        } else {
+            #pragma omp critical
+            {
                 printf("Unknown object type: %s\n", obj);
                 exit(1); // Terminate program due to unknown object type
             }
         }
     }
 }
+
 
 void copy_ecosystem(Entity** original, Entity** copy, int rows, int cols) {
     #pragma omp parallel for collapse(2)
@@ -171,7 +195,6 @@ void copy_ecosystem(Entity** original, Entity** copy, int rows, int cols) {
         }
     }
 }
-
 void copy_entity(Entity original, Entity* copy) {
     (*copy).type     = original.type;
     (*copy).gen_proc = original.gen_proc;
@@ -181,7 +204,6 @@ void copy_entity(Entity original, Entity* copy) {
 
 int main(int argc, char *argv[]) {
     int GEN_PROC_RABBITS, GEN_PROC_FOXES, GEN_FOOD_FOXES, N_GEN, rows, cols, N;
-    // long startTime = time(NULL); 
 
     double startTime, endTime;
     startTime = omp_get_wtime();
@@ -215,7 +237,7 @@ int main(int argc, char *argv[]) {
 
     endTime = omp_get_wtime();
     printf("Execution time: %f seconds\n", endTime - startTime);
-    
+
     return 0;
 }
 
@@ -225,52 +247,51 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
     // MOVING RABBITS
     if (VERBOSE) printf("\n\nCHECKING MOVES FOR RABBITS\n\n");
 
-    #pragma omp parallel for schedule(guided)
-    for (int row=0; row<rows; row++) {
-        for (int col=0; col<cols; col++) {
+    #pragma omp parallel for collapse(2)
+    for (int row = 0; row < rows; row++) {
+        for (int col = 0; col < cols; col++) {
             if ((*ecosystem)[row][col].type != RABBIT) continue;
+
             int* next_move = get_next_move((*ecosystem), rows, cols, row, col, G, (*aux_ecosystem));
-            if (VERBOSE) printf("Thread ID: %d, Number of Threads: %d\n", omp_get_thread_num(), omp_get_num_threads());
             if (VERBOSE) printf("Rabbit from (%d, %d) -> (%d, %d) [which is a %c]\n", row, col, next_move[0], next_move[1], (*aux_ecosystem)[next_move[0]][next_move[1]].type);
             if (VERBOSE) printf("     rabbit (cur_gen, gen_prod)=(%d, %d)\n", (*ecosystem)[row][col].cur_gen, (*ecosystem)[row][col].gen_proc);
 
-            // Check if rabbit is ready to procriate
+            // Check if rabbit is ready to procreate
             if ((*ecosystem)[row][col].gen_proc < GEN_PROC_RABBITS) {
-                // If not, delete rabbit from it's current position in the next generation (effectively moving)
+                // If not, delete rabbit from its current position in the next generation (effectively moving)
                 if (VERBOSE) printf("Removing rabbit from (%d, %d) in next gen\n", row, col);
                 empty_entity(&((*aux_ecosystem)[row][col]), G+1);
             } 
-             // If ready to procriate and rabbit moves to other pos, just reset gen_proc and move to the next position
+            // If ready to procreate and rabbit moves to other pos, just reset gen_proc and move to the next position
             else if (row != next_move[0] || col != next_move[1]) {
-                (*ecosystem)[row][col].gen_proc = -1;
-                (*ecosystem)[row][col].cur_gen = G+1; 
-                (*aux_ecosystem)[row][col].gen_food = -1;
-                (*aux_ecosystem)[row][col].gen_proc = 0;
-                (*aux_ecosystem)[row][col].cur_gen = G+1;
-                (*aux_ecosystem)[row][col].type = RABBIT;
-                if (VERBOSE) printf("Rabbit from (%d, %d) procriating\n", row, col);
+                    (*ecosystem)[row][col].gen_proc = -1;
+                    (*ecosystem)[row][col].cur_gen = G+1; 
+                    (*aux_ecosystem)[row][col].gen_food = -1;
+                    (*aux_ecosystem)[row][col].gen_proc = 0;
+                    (*aux_ecosystem)[row][col].cur_gen = G+1;
+                    (*aux_ecosystem)[row][col].type = RABBIT;
+                if (VERBOSE) printf("Rabbit from (%d, %d) procreating\n", row, col);
                 if (VERBOSE) printf("Pos (%d, %d) in aux_eco - %c\n", row, col, (*aux_ecosystem)[row][col].type);
-
             }
-            // If move goes to cell with something of next generation, than only a rabbit could've moved there
+            // If move goes to cell with something of next generation, then only a rabbit could've moved there
             if ((*aux_ecosystem)[next_move[0]][next_move[1]].cur_gen > G && (*aux_ecosystem)[next_move[0]][next_move[1]].type == RABBIT) {
-                // if so, just remove current rabbit from it's position and make the rabbit in the next pos have the highest gen_proc
+                // if so, just remove current rabbit from its position and make the rabbit in the next pos have the highest gen_proc
                 (*aux_ecosystem)[next_move[0]][next_move[1]].gen_proc = max((*aux_ecosystem)[next_move[0]][next_move[1]].gen_proc, (*ecosystem)[row][col].gen_proc+1);
                 continue;
             }
             // If not rabbit in next_pos, then just move there and increase gen_proc and cur_gen
-           (*ecosystem)[row][col].gen_proc ++;
-           (*ecosystem)[row][col].cur_gen = G+1;
-           copy_entity((*ecosystem)[row][col], &((*aux_ecosystem)[next_move[0]][next_move[1]]));
-           if (VERBOSE) printf("Coppied entity '%c' from ecosystem[%d, %d] -> aux_ecosystem[%d, %d]", (*ecosystem)[row][col].type, row, col, next_move[0], next_move[1]);
+            (*ecosystem)[row][col].gen_proc ++;
+            (*ecosystem)[row][col].cur_gen = G+1;
+            copy_entity((*ecosystem)[row][col], &((*aux_ecosystem)[next_move[0]][next_move[1]]));
+            if (VERBOSE) printf("Coppied entity '%c' from ecosystem[%d, %d] -> aux_ecosystem[%d, %d]", (*ecosystem)[row][col].type, row, col, next_move[0], next_move[1]);
         }
     }
-    
-    
+
+    #pragma omp barrier
+
     // MOVING FOXES
     if (VERBOSE) printf("\n\nCHECKING MOVES FOR FOXES\n\n");
-
-    #pragma omp parallel for schedule(guided)
+    #pragma omp parallel for collapse(2)
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             // if in aux_ecosystem it has not been updated means it needs to be updated
@@ -307,36 +328,38 @@ void get_next_generation(Entity*** ecosystem, int rows, int cols, int G, int GEN
 
             // If next_pos is a rabbit, eat it and reset food (setting it as -1) to let other foxes know it just ate a rabbit
             if (ent_next_pos.type == RABBIT && ent_next_pos.cur_gen == G+1) {
-                (*ecosystem)[row][col].gen_proc ++;
-                (*ecosystem)[row][col].cur_gen = G+1;
-                (*ecosystem)[row][col].gen_food = -1;
-                copy_entity((*ecosystem)[row][col], &((*aux_ecosystem)[next_move[0]][next_move[1]]));
-                if (VERBOSE) printf("Fox from (%d, %d) ate a rabbit\n", row, col);
+                    (*ecosystem)[row][col].gen_proc++;
+                    (*ecosystem)[row][col].cur_gen = G + 1;
+                    (*ecosystem)[row][col].gen_food = -1;
+                    copy_entity((*ecosystem)[row][col], &((*aux_ecosystem)[next_move[0]][next_move[1]]));
+                    if (VERBOSE) printf("Fox from (%d, %d) ate a rabbit\n", row, col);
                 continue;
             }
             // If next_pos is a fox with next gen, compare "gen_proc" and "gen_food"
             if (ent_next_pos.type == FOX && ent_next_pos.cur_gen == G+1) {
-                (*ecosystem)[row][col].gen_proc = max((*ecosystem)[row][col].gen_proc, ent_next_pos.gen_proc-1);
-                (*ecosystem)[row][col].gen_food = min((*ecosystem)[row][col].gen_food, ent_next_pos.gen_food-1);
+                (*ecosystem)[row][col].gen_proc = max((*ecosystem)[row][col].gen_proc, ent_next_pos.gen_proc - 1);
+                (*ecosystem)[row][col].gen_food = min((*ecosystem)[row][col].gen_food, ent_next_pos.gen_food - 1);
             }
-            // Case where fox moves to an empty cell, need to increase everything and move to new cell
-            (*ecosystem)[row][col].gen_proc ++;
-            (*ecosystem)[row][col].cur_gen = G+1;
-            (*ecosystem)[row][col].gen_food ++;
+            // Case where fox moves to an empty cell, need to increase everything and move to the new cell
+            (*ecosystem)[row][col].gen_proc++;
+            (*ecosystem)[row][col].cur_gen = G + 1;
+            (*ecosystem)[row][col].gen_food++;
             // If fox hasn't eaten in "GEN_FOOD_FOXES" kill the fox
             if ((*ecosystem)[row][col].gen_food >= GEN_FOOD_FOXES) {
-                empty_entity(&((*aux_ecosystem)[row][col]), G+1);
+                empty_entity(&((*aux_ecosystem)[row][col]), G + 1);
                 if (VERBOSE) printf("Fox from (%d, %d) dies because of food\n", row, col);
                 continue;
             }
+        
             copy_entity((*ecosystem)[row][col], &((*aux_ecosystem)[next_move[0]][next_move[1]]));
             
         }
     }
+    
+    #pragma omp barrier
 
-
+    #pragma omp parallel for collapse(2) // Parallelize nested loops   
     // DELETING ALL PREVIOUS GENERATION THINGS
-    #pragma omp parallel for collapse(2) // Parallelize nested loops
     for (int row=0; row<rows; row++) {
         for (int col=0; col<cols; col++) {
             if ((*aux_ecosystem)[row][col].type == STONE || (*aux_ecosystem)[row][col].type == EMPTY) {
@@ -363,7 +386,7 @@ int* get_next_move(Entity** ecosystem, int rows, int cols, int row, int col, int
     output[1] = col;
     int max_val = 1;
     int p = 0;
-    // #pragma omp parallel for reduction(max:max_val) reduction(+:p)
+    #pragma omp parallel for reduction(max:max_val) reduction(+:p)
     for (int i=0; i<4; i++) {
         if (max_val < validMoves[i]) {
             max_val = validMoves[i];
@@ -437,12 +460,10 @@ void get_valid_moves(Entity** ecosystem, int rows, int cols, int row, int col, i
             printf("\n");
         }
     }
-
     Entity next_pos_entity;
     Entity next_pos_aux_entity;
-    int dir;
-    // #pragma omp parallel for private(dir) shared(validMoves)
-    for (dir=0; dir<4; dir++) {
+    
+    for (int dir=0; dir<4; dir++) {
         // If direction is outside ecosystem, try another direction
         if (row+directions[dir][0] < 0 || row+directions[dir][0] >= rows || col+directions[dir][1] < 0 || col+directions[dir][1] >= cols) continue;
         
