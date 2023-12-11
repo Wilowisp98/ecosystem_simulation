@@ -6,8 +6,8 @@ Report Overleaf URL:
 [https://www.overleaf.com/project/65740fe5480eb956a190598f](https://www.overleaf.com/project/65740fe5480eb956a190598f)
 
 # How to run
-## Using the .sh files
-1. Open a shell and execute the bash scripts with `./compile_and_test.sh`
+## Using the .sh/.bat files
+1. Open a shell/command line and execute the bash scripts with `./compile_and_test.sh`/`./compile_and_test.bat`
 
 ## Using the makefile
 1. Navigate to the directory containing the git repository
