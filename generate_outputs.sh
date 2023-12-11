@@ -1,7 +1,7 @@
 #!/bin/bash
 inputs_folder="./input_examples"
 
-omp_threads=(1 2 4 8 16 32)
+omp_threads=(1 2 4 8 12)
 
 
 # Loop through each OMP_NUM_THREADS value
