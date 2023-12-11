@@ -1,7 +1,7 @@
 
 
-input_1 = 'output_examples/allgen100x100'
-input_2 = 'output.txt'
+input_1 = '../output_examples/allgen100x100'
+input_2 = '../output.txt'
 
 with open(input_1, 'r') as f:
     f1 = f.readlines()
