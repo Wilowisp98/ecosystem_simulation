@@ -3530,4 +3530,4 @@ RABBIT 99 86
 RABBIT 99 88
 RABBIT 99 92
 RABBIT 99 95
-Execution time: 6.220132 seconds
+Execution time: 70.925000 seconds

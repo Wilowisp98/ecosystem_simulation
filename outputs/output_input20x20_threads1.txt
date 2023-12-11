@@ -150,4 +150,4 @@ RABBIT 19 7
 RABBIT 19 12
 RABBIT 19 13
 ROCK 19 14
-Execution time: 0.017818 seconds
+Execution time: 1.101000 seconds
